@@ -30,7 +30,10 @@
       "Bash(sed -i 's/FCanvasTextItem T\\(FVector2D\\(CX - 120, BY\\)/FCanvasTextItem T2\\(FVector2D\\(CX - 120, BY\\)/' MultiShooterGameHUD.cpp)",
       "Bash(sed -i 's/FCanvasTextItem T\\(FVector2D\\(CX - 120, SY/FCanvasTextItem Title2\\(FVector2D\\(CX - 120, BY\\)/' MultiShooterGameHUD.cpp)",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(git config *)"
     ]
   }
 }
