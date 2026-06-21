@@ -1,0 +1,61 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/PlayerController.h"
+#include "ShooterPlayerController.generated.h"
+
+class UInputMappingContext;
+class AShooterCharacter;
+
+UCLASS(config="Game")
+class MYCS_API AShooterPlayerController : public APlayerController
+{
+	GENERATED_BODY()
+
+protected:
+
+	UPROPERTY(EditAnywhere, Category = "Input|Input Mappings")
+	TArray<UInputMappingContext*> DefaultMappingContexts;
+
+	UPROPERTY(EditAnywhere, Category = "Input|Input Mappings")
+	TArray<UInputMappingContext*> MobileExcludedMappingContexts;
+
+	UPROPERTY(EditAnywhere, Category = "Input|Touch Controls")
+	TSubclassOf<UUserWidget> MobileControlsWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UUserWidget> MobileControlsWidget;
+
+	UPROPERTY(EditAnywhere, Config, Category = "Input|Touch Controls")
+	bool bForceTouchControls = false;
+
+	UPROPERTY(EditAnywhere, Category = "Shooter|Respawn")
+	TSubclassOf<AShooterCharacter> CharacterClass;
+
+	UPROPERTY(EditAnywhere, Category = "Shooter|Player")
+	FName PlayerPawnTag = FName("Player");
+
+protected:
+
+	virtual void BeginPlay() override;
+	virtual void SetupInputComponent() override;
+	virtual void OnPossess(APawn* InPawn) override;
+
+	UFUNCTION()
+	void OnPawnDestroyed(AActor* DestroyedActor);
+
+	bool ShouldUseTouchControls() const;
+
+	/** Menu toggle */
+	void ToggleMenu();
+
+	/** Handle left mouse click */
+	void OnLeftClick();
+
+	/** Handle Enter/Backspace for IP input */
+	void OnMenuEnter();
+	void OnMenuBackspace();
+
+};

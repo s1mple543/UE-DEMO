@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -i 's/\\\\t\"GameplayStateTreeModule\",/\\\\t\"GameplayStateTreeModule\",\\\\n\\\\t\\\\t\\\\t\"NavigationSystem\",/' MyCS.Build.cs)",
+      "Bash(sed -i 's/\\\\t\\\\\\\\t\\\\\\\\t\"MyCS\\\\/Variant_Multi\"/\\\\t\\\\t\\\\t\"MyCS\\\\/Variant_Multi\"/' MyCS.Build.cs)",
+      "Bash(python *)",
+      "Read(//c//**)",
+      "Read(//d/Program Files/**)",
+      "Read(//d//**)",
+      "Bash(\"/d/Program Files \\(x86\\)/UE_5.7/Engine/Build/BatchFiles/Build.bat\" MyCSEditor Win64 Development -project=\"C:/Users/admin/Documents/Unreal Projects/MyCS/MyCS.uproject\" -waitmutex -NoHotReload)",
+      "Bash('/d/Program Files \\(x86\\)/UE_5.7/Engine/Build/BatchFiles/Build.bat' MyCSEditor Win64 Development '-project=C:/Users/admin/Documents/Unreal Projects/MyCS/MyCS.uproject' -waitmutex -NoHotReload)",
+      "Bash(cmd.exe //c '\"/d/Program Files \\(x86\\)/UE_5.7/Engine/Build/BatchFiles/Build.bat\" MyCSEditor Win64 Development -project=\"C:/Users/admin/Documents/Unreal Projects/MyCS/MyCS.uproject\" -waitmutex -NoHotReload')",
+      "Bash(cmd.exe *)",
+      "Bash([ -f \"$UBT_DLL\" ])",
+      "Bash(python3 *)",
+      "Bash(/c/Python314/python *)",
+      "Bash(powershell.exe -Command \"Get-Process UnrealEditor, UE5Editor -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(powershell.exe *)",
+      "Bash(tasklist.exe //FI \"IMAGENAME eq UnrealEditor.exe\")",
+      "Bash(tasklist.exe //FI \"IMAGENAME eq UE5Editor.exe\")",
+      "Bash(tasklist.exe)",
+      "Bash(awk '{print $2}')",
+      "WebSearch",
+      "Bash(notepad *)",
+      "Bash(start *)",
+      "Bash(\"/d/Program Files \\(x86\\)/UE_5.7/Engine/Binaries/Win64/UnrealEditor.exe\" \"C:/Users/admin/Documents/Unreal Projects/MyCS/MyCS.uproject\" -ExecutePythonScript=\"C:/Users/admin/Documents/Unreal Projects/MyCS/BuildMap.py\" -log)",
+      "Bash(sed -i '/IP input: digits 0-9/,/Instead, IP input is handled via a/{d}' \"C:/Users/admin/Documents/Unreal Projects/MyCS/Source/MyCS/Variant_Shooter/ShooterPlayerController.cpp\")",
+      "Bash(sed -i '/Not used.*IP input uses a simpler approach/{N;N;N;N;d}' \"C:/Users/admin/Documents/Unreal Projects/MyCS/Source/MyCS/Variant_Shooter/ShooterPlayerController.cpp\")",
+      "Bash(sed -i 's/void HandleKeyPress\\(const FString\\\\& Char\\);/void HandleClick\\(float ScreenX, float ScreenY\\);/' MultiShooterGameHUD.h)",
+      "Bash(sed -i 's/FCanvasTextItem T\\(FVector2D\\(CX - 120, BY\\)/FCanvasTextItem T2\\(FVector2D\\(CX - 120, BY\\)/' MultiShooterGameHUD.cpp)",
+      "Bash(sed -i 's/FCanvasTextItem T\\(FVector2D\\(CX - 120, SY/FCanvasTextItem Title2\\(FVector2D\\(CX - 120, BY\\)/' MultiShooterGameHUD.cpp)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}

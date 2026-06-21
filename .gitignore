@@ -1,0 +1,24 @@
+# UE5 generated
+Binaries/
+Intermediate/
+DerivedDataCache/
+Saved/
+Build/
+*.VC.db
+*.sdf
+*.opensdf
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.sln
+
+# Python build script (optional)
+BuildMap.py
+PackageGame.bat

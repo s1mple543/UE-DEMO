@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>MyCS — 多人联机波次生存射击游戏 技术实现报告</title>
+<style>
+@page { size: A4; margin: 2cm; }
+body { font-family: "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif; line-height: 1.7; color: #222; max-width: 900px; margin: 0 auto; padding: 2em; }
+h1 { font-size: 26px; border-bottom: 3px solid #0366d6; padding-bottom: 10px; color: #0366d6; }
+h2 { font-size: 20px; margin-top: 32px; border-bottom: 1px solid #ddd; padding-bottom: 6px; color: #333; }
+h3 { font-size: 17px; margin-top: 24px; color: #444; }
+p { margin: 8px 0; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; }
+th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+th { background: #f0f4f8; }
+pre { background: #f6f8fa; border: 1px solid #ddd; border-radius: 4px; padding: 12px; font-size: 13px; overflow-x: auto; }
+code { font-family: "Consolas", "Courier New", monospace; font-size: 13px; background: #f0f0f0; padding: 2px 5px; border-radius: 3px; }
+pre code { background: none; padding: 0; }
+.toc { background: #f6f8fa; border: 1px solid #ddd; border-radius: 6px; padding: 16px 24px; margin: 20px 0; }
+.toc li { margin: 4px 0; }
+.tag { display: inline-block; background: #28a745; color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 10px; margin-right: 6px; }
+.tag-blue { background: #0366d6; }
+.tag-orange { background: #e67e22; }
+.tag-red { background: #d73a49; }
+</style>
+</head>
+<body>
+
+<h1>MyCS — 多人联机波次生存射击游戏</h1>
+<p style="font-size:16px;color:#555;margin-top:-8px;">
+基于 Unreal Engine 5.7 First Person 模板 · 纯 C++ 实现 · 2026.06
+</p>
+
+<div class="toc">
+<h3 style="margin-top:0;border:none;">目录</h3>
+<ol>
+<li><a href="#p1">项目概述</a></li>
+<li><a href="#p2">需求完成度评估</a></li>
+<li><a href="#p3">整体架构</a></li>
+<li><a href="#p4">模块详解</a></li>
+<li><a href="#p5">网络同步方案</a></li>
+<li><a href="#p6">核心数据流</a></li>
+<li><a href="#p7">关键技术点</a></li>
+<li><a href="#p8">操作说明</a></li>
+<li><a href="#p9">游戏规则</a></li>
+<li><a href="#p10">总结与扩展</a></li>
+</ol>
+</div>
+
+<h2 id="p1">一、项目概述</h2>
+
+<table>
+<tr><th>项目</th><th>说明</th></tr>
+<tr><td>项目名称</td><td>MyCS — Multiplayer Wave Survival Shooter</td></tr>
+<tr><td>引擎版本</td><td>Unreal Engine 5.7</td></tr>
+<tr><td>开发语言</td><td>C++（纯代码，零蓝图逻辑）</td></tr>
+<tr><td>项目规模</td><td>50+ 源文件，约 6000 行 C++ 代码</td></tr>
+<tr><td>开发周期</td><td>约 2 周</td></tr>
+<tr><td>核心玩法</td><td>4 人联机合作，每 15 秒生成 1 只敌人，总计 20 只，全清获胜</td></tr>
+<tr><td>同步方案</td><td>服务端权威式状态同步</td></tr>
+</table>
+
+<h2 id="p2">二、需求完成度评估</h2>
+
+<h3>要求 1：会移动和攻击玩家的敌人，玩家可以击败敌人</h3>
+<p><span class="tag">✅ 完成</span></p>
+<table>
+<tr><th>功能</th><th>实现文件</th><th>说明</th></tr>
+<tr><td>NPC 移动/寻路</td><td>ShooterNPC + ShooterAIController</td><td>StateTree 驱动 AI，导航网格寻路</td></tr>
+<tr><td>NPC 攻击玩家</td><td>ShooterNPC::StartShooting()</td><td>AI 感知系统检测玩家，锁定射击</td></tr>
+<tr><td>玩家击败敌人</td><td>ShooterCharacter::TakeDamage()</td><td>投射物命中造成伤害，HP 归零敌人死亡</td></tr>
+<tr><td>武器系统</td><td>ShooterWeapon / ShooterProjectile / ShooterPickup</td><td>手枪/步枪/榴弹发射器，弹药消耗</td></tr>
+<tr><td>手动换弹</td><td>ShooterWeapon::StartReload()</td><td>R 键换弹，换弹期间不能射击</td></tr>
+</table>
+
+<h3>要求 2：得分和游戏胜利机制</h3>
+<p><span class="tag">✅ 完成</span></p>
+<table>
+<tr><th>机制</th><th>实现</th><th>细节</th></tr>
+<tr><td>游戏规则</td><td>ShooterGameMode</td><td>每 15 秒生成 1 只敌人，总计 20 只</td></tr>
+<tr><td>胜利条件</td><td>HandleVictory()</td><td>消灭全部 20 只敌人</td></tr>
+<tr><td>失败条件</td><td>HandleDefeat()</td><td>所有玩家命数耗尽</td></tr>
+<tr><td>命数系统</td><td>MultiShooterPlayerState</td><td>每人 3 条命，死亡后消耗 1 条</td></tr>
+<tr><td>击杀计分</td><td>AddKill() / AddDeath()</td><td>每杀一只 +100 分</td></tr>
+<tr><td>血量恢复</td><td>OnHealthRegen()</td><td>每 10 秒恢复 50HP，上限 500</td></tr>
+</table>
+
+<h3>要求 3：多人网络对战</h3>
+<p><span class="tag">✅ 完成</span></p>
+<table>
+<tr><th>功能</th><th>实现</th><th>细节</th></tr>
+<tr><td>对象复制</td><td>bReplicates = true</td><td>Character/NPC/Weapon/Projectile 均支持复制</td></tr>
+<tr><td>服务器 RPC</td><td>ServerStartFiring() / ServerReload()</td><td>客户端射击/换弹请求发送到服务器</td></tr>
+<tr><td>属性同步</td><td>DOREPLIFETIME</td><td>HP、弹药数、换弹状态、击杀数等属性网络同步</td></tr>
+<tr><td>游戏状态</td><td>MultiShooterGameState</td><td>总敌人数、存活敌人数、游戏结束标志</td></tr>
+<tr><td>玩家状态</td><td>MultiShooterPlayerState</td><td>击杀数、死亡数、剩余命数</td></tr>
+<tr><td>联机模式</td><td>OnlineSubsystemNull</td><td>LAN 联机，支持 4 人同玩</td></tr>
+<tr><td>角色碰撞</td><td>ShooterProjectile</td><td>友军伤害开启，玩家可互伤</td></tr>
+</table>
+
+<h2 id="p3">三、整体架构</h2>
+
+<pre>
+Source/MyCS/
+├── MyCS/                         # 基础层（FPS 模板基类）
+│   ├── MyCSCharacter.h/.cpp       # 角色基础（移动/跳跃/相机）
+│   ├── MyCSPlayerController       # 控制器基础
+│   ├── MyCSGameMode               # 游戏模式基础
+│   └── MyCSCameraManager          # 相机约束
+│
+├── Variant_Shooter/              # 玩法层（核心游戏逻辑）
+│   ├── ShooterCharacter           # 玩家角色（HP/武器/换弹/瞄准）
+│   ├── ShooterGameMode            # 游戏模式（刷怪/胜负判定）
+│   ├── ShooterPlayerController    # 控制器（输入/复活/菜单）
+│   ├── Weapons/                   # 武器系统
+│   │   ├── ShooterWeapon          # 武器基类（射击/弹匣/换弹）
+│   │   ├── ShooterProjectile      # 投射物（伤害/碰撞/友军）
+│   │   ├── ShooterPickup          # 武器拾取物
+│   │   └── ShooterWeaponHolder    # 武器持有者接口
+│   ├── AI/                        # 敌人 AI（StateTree 驱动）
+│   │   ├── ShooterNPC             # 敌人（血量/死亡/射击）
+│   │   ├── ShooterAIController    # AI 控制器（感知+行为树）
+│   │   ├── ShooterNPCSpawner      # NPC 生成器（旧系统）
+│   │   ├── ShooterStateTreeUtility # StateTree 任务节点
+│   │   └── EnvQueryContext_Target # 环境查询上下文
+│   └── UI/                        # 旧版 UI（已废弃）
+│
+├── Variant_Multi/                # 网络层（联机同步）
+│   ├── MultiShooterGameState       # 游戏状态（网络同步）
+│   ├── MultiShooterPlayerState     # 玩家状态（击杀/命数）
+│   └── MultiShooterGameHUD         # HUD 渲染 + 菜单系统
+│
+└── Variant_Horror/               # Horror 变体（未使用）
+</pre>
+
+<h2 id="p4">四、模块详解</h2>
+
+<h3>4.1 第一人称角色系统（MyCSCharacter）</h3>
+<p>UE5 FPS 模板提供的基类，负责相机附着、第一人称网格渲染、Enhanced Input 输入系统。</p>
+<p><strong>我们做的修改：</strong></p>
+<table>
+<tr><th>修改内容</th><th>文件</th><th>说明</th></tr>
+<tr><td>FP 网格附着方式修改</td><td>MyCSCharacter.cpp</td><td>从附着于 TP 骨骼改为附着于 Camera，解决手臂穿墙问题</td></tr>
+<tr><td>相机偏移调整</td><td>MyCSCharacter.cpp</td><td>相机位置调至合理眼睛高度，手臂显示在视野下方</td></tr>
+</table>
+
+<h3>4.2 武器系统（ShooterWeapon / ShooterProjectile / ShooterPickup）</h3>
+
+<p><strong>ShooterWeapon 武器基类</strong></p>
+<ul>
+<li>双网格渲染（第一人称 + 第三人称）</li>
+<li>弹药系统：<code>MagazineSize</code> 弹匣容量，<code>CurrentBullets</code> 当前弹药</li>
+<li>全自动/半自动射击模式（<code>bFullAuto</code> + <code>RefireRate</code>）</li>
+<li>弹道散布 + 后坐力</li>
+<li>AI 感知噪声：<code>MakeNoise()</code></li>
+</ul>
+
+<p><strong>换弹系统</strong>（我们新增）：</p>
+<pre><code>void StartReload()     // 开始换弹，标记 bIsReloading，设置换弹计时器
+void FinishReload()    // 换弹完成，填满弹匣，更新 HUD</code></pre>
+<p>关键设计：使用独立的 <code>ReloadTimer</code>，与射击的 <code>RefireTimer</code> 分离，避免定时器冲突。</p>
+
+<p><strong>ShooterProjectile 投射物</strong></p>
+<ul>
+<li>SphereComponent 碰撞 + ProjectileMovementComponent 弹道</li>
+<li>HitDamage 伤害值，通过 ApplyDamage() 统一接口</li>
+<li>爆炸模式：bExplodeOnHit 开启范围伤害</li>
+</ul>
+<p><strong>友军伤害规则：</strong></p>
+<pre><code>// 玩家 → NPC：造成伤害
+// NPC → 玩家：造成伤害（敌人打玩家）
+// 玩家 → 玩家：造成伤害（友军伤害开启）
+// NPC → NPC：跳过伤害（防止内讧）</code></pre>
+
+<p><strong>ShooterPickup 武器拾取</strong></p>
+<ul>
+<li>基于 DataTable 配置武器类型（Pistol/Rifle/GrenadeLauncher）</li>
+<li>碰撞重叠触发 AddWeaponClass()</li>
+<li>已持有武器时自动补满弹匣 + 切换到该武器</li>
+</ul>
+
+<h3>4.3 玩家角色（ShooterCharacter）</h3>
+<p>继承自 <code>MyCSCharacter</code>，实现 <code>IShooterWeaponHolder</code> 接口。</p>
+
+<table>
+<tr><th>状态</th><th>类型</th><th>同步方式</th></tr>
+<tr><td>HP</td><td>float CurrentHP</td><td>ReplicatedUsing=OnRep_CurrentHP</td></tr>
+<tr><td>最大血量</td><td>float MaxHP = 500</td><td>仅服务器</td></tr>
+<tr><td>瞄准状态</td><td>bool bIsAiming</td><td>本地</td></tr>
+</table>
+
+<p><strong>关键功能实现：</strong></p>
+<p><em>伤害与死亡：</em></p>
+<pre><code>float TakeDamage(float Damage, ...) {
+    CurrentHP -= Damage;
+    if (CurrentHP &lt;= 0) Die();
+    OnDamaged.Broadcast(HP/MaxHP);  // 更新 HUD
+}</code></pre>
+
+<p><em>射击网络同步：</em></p>
+<pre><code>void DoStartFiring() {
+    if (HasAuthority()) CurrentWeapon->StartFiring();
+    else ServerStartFiring();  // RPC → 服务器
+}</code></pre>
+
+<p><em>血量恢复：</em></p>
+<pre><code>void OnHealthRegen() {
+    CurrentHP = FMath::Min(MaxHP, CurrentHP + 50.0f);
+    // 每 10 秒触发，仅服务器执行</code></pre>
+
+<p><em>瞄准系统（ADS）：</em></p>
+<pre><code>// Tick() 中平滑插值 FOV
+float Target = bIsAiming ? AimFOV(35°) : DefaultFOV(70°);
+float NewFOV = FMath::FInterpTo(Current, Target, Delta, 12.0f);</code></pre>
+
+<h3>4.4 敌人 AI（ShooterNPC + ShooterAIController）</h3>
+<p><strong>AI 架构：</strong> StateTree 行为树</p>
+<pre>
+SenseEnemies → 检测玩家（AIPerception 视觉+听觉）
+    ↓ 发现敌人
+FaceActor → 面向目标
+ShootAtTarget → 开火
+    ↓ 丢失目标
+Roam → 随机巡逻
+</pre>
+
+<p><strong>击杀逻辑：</strong></p>
+<pre><code>void Die() {
+    OnPawnDeath.Broadcast();  // 触发 GameMode 击杀计数
+    if (LastDamageInstigator) // 只记录玩家控制的击杀者
+        PS->AddKill();
+    GetMesh()->SetSimulatePhysics(true);  // 布娃娃物理
+}</code></pre>
+
+<h3>4.5 游戏模式（ShooterGameMode）</h3>
+<p>游戏规则的核心控制器，负责刷怪和胜负判定。</p>
+
+<p><strong>关键数据结构：</strong></p>
+<pre><code>int32 TotalSpawned = 0;    // 已生成数量
+int32 TotalKilled = 0;     // 已击杀数量
+bool bFinishedSpawning;    // 是否已生成完毕
+bool bGameOver;            // 游戏是否结束</code></pre>
+
+<p><strong>胜负判定逻辑：</strong></p>
+<pre><code>// 胜利：所有敌人生成完毕且全部击杀
+if (bFinishedSpawning && TotalKilled >= MaxEnemies)
+    HandleVictory();
+
+// 失败：所有玩家命数为 0
+void CheckDefeat() {
+    for (PS : GameState->PlayerArray)
+        if (PS-&gt;RemainingLives &gt; 0) return;
+    HandleDefeat();
+}</code></pre>
+
+<h3>4.6 HUD 与菜单系统（MultiShooterGameHUD）</h3>
+<p>纯 C++ AHUD 子类，使用 Canvas 直接绘制，零蓝图依赖。</p>
+
+<table>
+<tr><th>UI 元素</th><th>位置</th><th>技术实现</th></tr>
+<tr><td>敌人信息</td><td>左上角</td><td>Canvas DrawText + 背景 Tile</td></tr>
+<tr><td>玩家统计</td><td>左上角</td><td>击杀数/分数/命数/死亡数</td></tr>
+<tr><td>弹药计数</td><td>右下角</td><td>12/30 或 RELOADING...</td></tr>
+<tr><td>空弹提示</td><td>弹药下方</td><td>红色 [R] RELOAD</td></tr>
+<tr><td>血条</td><td>右下角</td><td>绿/橙/红三段渐变</td></tr>
+<tr><td>十字准星</td><td>屏幕中心</td><td>4 条白色线段 + 中心点</td></tr>
+<tr><td>瞄准镜</td><td>全屏</td><td>程序化 UTexture2D 纹理</td></tr>
+<tr><td>主菜单</td><td>全屏</td><td>F10 呼出，Host/Join/Quit</td></tr>
+<tr><td>游戏结束</td><td>全屏</td><td>半透明遮罩 + 结果文字</td></tr>
+</table>
+
+<p><strong>瞄准镜技术：</strong> 在 <code>BeginPlay()</code> 中动态生成一张 1024×1024 的纹理，包含全黑背景 + 透明圆形镜片 + 绿色十字准线 + 边缘暗环。开镜时一次 <code>DrawTexture()</code> 调用完成渲染，性能零开销。</p>
+
+<p><strong>菜单系统：</strong> F10 呼出/关闭，游戏暂停输入。支持鼠标点击和键盘 Enter 确认。</p>
+
+<h2 id="p5">五、网络同步方案</h2>
+
+<h3>5.1 同步架构选择</h3>
+<p>本项目采用 <strong>服务端权威式状态同步</strong>（Server-Authoritative State Synchronization），这是 FPS 游戏的行业标准方案，与《堡垒之夜》《使命召唤》《绝地求生》采用相同的底层机制。</p>
+
+<table>
+<tr><th>对比项</th><th>状态同步（本项目）</th><th>帧同步（Lockstep）</th></tr>
+<tr><td>同步内容</td><td>游戏状态（位置/HP/分数）</td><td>玩家输入（按下按键）</td></tr>
+<tr><td>防作弊</td><td>服务器权威，难作弊</td><td>需额外校验</td></tr>
+<tr><td>客户端预测</td><td>支持</td><td>不支持</td></tr>
+<tr><td>典型应用</td><td>FPS / MMO / ARPG</td><td>RTS / 格斗游戏</td></tr>
+<tr><td>UE5 实现</td><td>Actor Replication + RPC</td><td>Input Replication</td></tr>
+</table>
+
+<h3>5.2 属性复制（DOREPLIFETIME）</h3>
+
+<p><strong>MultiShooterGameState</strong>（广播给所有客户端）：</p>
+<pre><code>DOREPLIFETIME(GameState, MaxEnemies);
+DOREPLIFETIME(GameState, TotalSpawned);
+DOREPLIFETIME(GameState, TotalKilled);
+DOREPLIFETIME(GameState, EnemiesRemaining);
+DOREPLIFETIME(GameState, bGameOver);
+DOREPLIFETIME(GameState, bVictory);</code></pre>
+
+<p><strong>MultiShooterPlayerState</strong>（每个玩家看到自己的数据）：</p>
+<pre><code>DOREPLIFETIME(PlayerState, Kills);
+DOREPLIFETIME(PlayerState, Deaths);
+DOREPLIFETIME(PlayerState, RemainingLives);</code></pre>
+
+<p><strong>ShooterWeapon</strong>（武器状态同步到所有客户端）：</p>
+<pre><code>UPROPERTY(Replicated) int32 CurrentBullets;
+UPROPERTY(Replicated) bool bIsReloading;
+DOREPLIFETIME(ShooterWeapon, CurrentBullets);
+DOREPLIFETIME(ShooterWeapon, bIsReloading);</code></pre>
+
+<h3>5.3 远程过程调用（RPC）</h3>
+
+<table>
+<tr><th>RPC</th><th>方向</th><th>用途</th></tr>
+<tr><td>ServerStartFiring()</td><td>客户端 → 服务器</td><td>请求开始开枪</td></tr>
+<tr><td>ServerStopFiring()</td><td>客户端 → 服务器</td><td>请求停止开枪</td></tr>
+<tr><td>ServerReload()</td><td>客户端 → 服务器</td><td>请求换弹</td></tr>
+</table>
+
+<h3>5.4 RepNotify 同步</h3>
+<p>HP 属性使用 <code>ReplicatedUsing = OnRep_CurrentHP</code>，服务器修改 HP 后自动触发客户端的 <code>OnRep_CurrentHP</code> 回调，广播 HP 变化事件更新 HUD。</p>
+
+<h3>5.5 网络配置</h3>
+<pre><code>OnlineSubsystemNull      // LAN 联机（无需 Steam）
+MaxPlayers=4             // 最大 4 人
+open Lvl_Shooter?listen  // 主机命令
+open IP:7777             // 加入命令</code></pre>
+
+<h2 id="p6">六、核心数据流</h2>
+
+<h3>6.1 射击流程</h3>
+<pre>
+玩家点击左键
+  → DoStartFiring() [客户端]
+    → ServerStartFiring() [RPC → 服务器]
+      → Weapon->StartFiring()
+        → Fire() → FireProjectile()
+          → SpawnActor&lt;AShooterProjectile&gt;
+            → NotifyHit() → ProcessHit()
+              → ApplyDamage() → TakeDamage()
+</pre>
+
+<h3>6.2 刷怪流程</h3>
+<pre>
+GameMode::BeginPlay()
+  → 5 秒后开始刷怪
+    → 每 15 秒生成 1 只
+      → NPC 绑定 OnPawnDeath → OnEnemyKilled
+      → 20 只生成完毕 → bFinishedSpawning = true
+        → NPC 死亡 → TotalKilled++
+          → 若 TotalKilled &gt;= 20 → Victory
+</pre>
+
+<h3>6.3 网络同步流程</h3>
+<pre>
+服务端                             客户端
+ShooterCharacter::CurrentHP  ─────→ OnRep_CurrentHP → HUD 更新
+MultiShooterGameState        ─────→ 自动复制 → 所有客户端
+MultiShooterPlayerState      ─────→ 自动复制 → 对应玩家
+ServerStartFiring()          ←──── 客户端 RPC 请求
+</pre>
+
+<h2 id="p7">七、关键技术点</h2>
+
+<h3>7.1 换弹系统的定时器隔离</h3>
+<p>换弹使用独立于射击的 <code>ReloadTimer</code>，两个 <code>FTimerHandle</code> 互不干扰，解决了早期版本中换弹和射击定时器冲突导致换弹卡死的问题。</p>
+
+<h3>7.2 NPC 自相残杀防护</h3>
+<p>在 <code>ShooterProjectile::ProcessHit()</code> 中检测：如果射击者和目标都不是玩家控制，跳过伤害计算。同时在 <code>ShooterNPC::TakeDamage()</code> 中只记录 <code>IsPlayerControlled()</code> 的击杀者，消除虚假击杀计数。</p>
+
+<h3>7.3 程序化瞄准镜纹理</h3>
+<p>在 C++ 中使用 <code>UTexture2D::CreateTransient()</code> 动态生成 1024×1024 纹理，通过像素操作绘制黑色遮罩 + 透明圆形镜片 + 绿色十字线。单次 <code>DrawTexture()</code> 调用完成渲染，比逐行扫描的方式更高效、更美观。</p>
+
+<h3>7.4 Canvas 纯 C++ HUD</h3>
+<p>完整 HUD 系统使用 UE5 的 <code>AHUD::DrawHUD()</code> + <code>FCanvasItem</code> 绘制，包括准星、血条、弹药、敌人信息、主菜单、游戏结束遮罩，全部不依赖任何 Blueprint 或 UMG Widget。</p>
+
+<h2 id="p8">八、操作说明</h2>
+
+<table>
+<tr><th>操作</th><th>键位</th><th>说明</th></tr>
+<tr><td>移动</td><td>WASD</td><td>前后左右</td></tr>
+<tr><td>跳跃</td><td>空格</td><td></td></tr>
+<tr><td>视角</td><td>鼠标移动</td><td></td></tr>
+<tr><td>射击</td><td>鼠标左键</td><td>自动/半自动取决于武器</td></tr>
+<tr><td>瞄准</td><td>鼠标右键</td><td>FOV 缩放 + 瞄准镜</td></tr>
+<tr><td>换弹</td><td>R</td><td>手动换弹</td></tr>
+<tr><td>切枪</td><td>Q 或滚轮</td><td>已持有武器间切换</td></tr>
+<tr><td>主菜单</td><td>F10</td><td>Host Game / Join Game / Quit</td></tr>
+<tr><td>联机（主机）</td><td>F10 → Host</td><td>创建房间</td></tr>
+<tr><td>联机（加入）</td><td>F10 → Join</td><td>Localhost 或 LAN</td></tr>
+</table>
+
+<h2 id="p9">九、游戏规则</h2>
+
+<table>
+<tr><th>规则</th><th>详情</th></tr>
+<tr><td>敌人刷新</td><td>每 15 秒生成 1 只，总数 20 只</td></tr>
+<tr><td>胜利条件</td><td>消灭全部 20 只敌人</td></tr>
+<tr><td>失败条件</td><td>所有玩家命数耗尽</td></tr>
+<tr><td>玩家命数</td><td>每人 3 条命，死亡扣 1 条，归零淘汰</td></tr>
+<tr><td>玩家血量</td><td>500 HP，每 10 秒自动恢复 50</td></tr>
+<tr><td>武器获取</td><td>地图上的 Weapon Pickup 拾取</td></tr>
+<tr><td>友军伤害</td><td>开启，玩家可攻击玩家</td></tr>
+<tr><td>NPC 互伤</td><td>关闭，NPC 子弹不伤害 NPC</td></tr>
+</table>
+
+<h2 id="p10">十、总结与扩展方向</h2>
+
+<h3>项目总结</h3>
+<p>本项目从 UE5 First Person 模板出发，在两周内完成了一个完整的多人联机波次生存射击游戏。核心技术栈包括：</p>
+<ul>
+<li><strong>C++ 优先开发</strong>：全部游戏逻辑、AI 行为、网络同步、UI 绘制均在 C++ 中实现</li>
+<li><strong>服务端权威架构</strong>：所有关键逻辑由服务器执行，状态通过 UE5 复制系统同步</li>
+<li><strong>StateTree AI</strong>：基于状态树的 AI 编排，简洁可扩展</li>
+<li><strong>Canvas HUD</strong>：零依赖的纯 C++ UI 系统</li>
+</ul>
+
+<h3>可扩展方向</h3>
+<table>
+<tr><th>方向</th><th>说明</th></tr>
+<tr><td>更多武器类型</td><td>霰弹枪、狙击枪、近战武器</td></tr>
+<tr><td>道具系统</td><td>手雷、医疗包、护甲</td></tr>
+<tr><td>地图扩展</td><td>更多关卡、可破坏环境</td></tr>
+<tr><td>AI 升级</td><td>Boss 战、不同敌人类型</td></tr>
+<tr><td>Steam 联机</td><td>集成 OnlineSubsystemSteam</td></tr>
+<tr><td>打包发布</td><td>PackageGame.bat 脚本一键打包</td></tr>
+</table>
+
+<p style="margin-top:40px;padding-top:20px;border-top:1px solid #ddd;color:#888;font-size:14px;text-align:center;">
+MyCS Technical Report · 2026.06 · Powered by Unreal Engine 5.7
+</p>
+
+</body>
+</html>
